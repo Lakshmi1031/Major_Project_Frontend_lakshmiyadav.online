@@ -2,6 +2,7 @@ name: Frontend CI/CD (Development)
 
 on:
   workflow_dispatch:
+
   # push:
   #   branches:
   #     - dev
@@ -12,69 +13,60 @@ permissions:
 
 jobs:
   deploy:
-    environment: Development
+    name: Deploy Frontend
     runs-on: ubuntu-latest
 
+    environment:
+      name: Development
+
     steps:
+
       ############################################################
-      # Checkout
+      # CHECKOUT
       ############################################################
+
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Check OIDC Token Availability
-        run: |
-          echo "ACTIONS_ID_TOKEN_REQUEST_URL=$ACTIONS_ID_TOKEN_REQUEST_URL"
-          echo "ACTIONS_ID_TOKEN_REQUEST_TOKEN=${ACTIONS_ID_TOKEN_REQUEST_TOKEN:+SET}"
-
-      - name: Decode GitHub OIDC Token
-        shell: bash
-        run: |
-          TOKEN=$(curl -s \
-            -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com" | jq -r '.value')
-
-          python3 << 'EOF' "$TOKEN"
-          import base64
-          import json
-          import sys
-
-          token = sys.argv[1]
-          payload = token.split(".")[1]
-          payload += "=" * (-len(payload) % 4)
-
-          decoded = json.loads(base64.urlsafe_b64decode(payload))
-          print(json.dumps(decoded, indent=2))
-          EOF
-
       ############################################################
-      # Configure AWS Credentials
+      # CONFIGURE AWS CREDENTIALS
       ############################################################
-      - name: Debug GitHub Context
-        run: |
-          echo "Repository : ${{ github.repository }}"
-          echo "Ref        : ${{ github.ref }}"
-          echo "Ref Name   : ${{ github.ref_name }}"
-          echo "Environment: ${{ github.environment }}"
-          echo "Role ARN   : ${{ secrets.AWS_ROLE_ARN }}"
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: github-actions-frontend
 
       ############################################################
-      # Upload Frontend to S3
+      # VERIFY AWS LOGIN
       ############################################################
-      - name: Upload Files to Amazon S3
+
+      - name: Verify AWS Identity
         run: |
-          aws s3 sync frontend/ s3://${{ vars.S3_BUCKET_NAME }} \
-            --delete
+          aws sts get-caller-identity
 
       ############################################################
-      # CloudFront Cache Invalidation
+      # CONFIGURE FRONTEND
       ############################################################
+
+      - name: Configure API URL
+        run: |
+          sed -i "s|__API_URL__|${{ vars.API_URL }}|g" frontend/config.js
+
+      ############################################################
+      # DEPLOY TO S3
+      ############################################################
+
+      - name: Upload Frontend to Amazon S3
+        run: |
+          aws s3 sync frontend/ s3://${{ vars.S3_BUCKET_NAME }} --delete
+
+      ############################################################
+      # INVALIDATE CLOUDFRONT
+      ############################################################
+
       - name: Invalidate CloudFront Cache
         run: |
           aws cloudfront create-invalidation \
