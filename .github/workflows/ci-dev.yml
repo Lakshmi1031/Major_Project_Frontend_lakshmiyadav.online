@@ -47,13 +47,6 @@ jobs:
         run: |
           aws sts get-caller-identity
 
-      ############################################################
-      # CONFIGURE FRONTEND
-      ############################################################
-
-      - name: Configure API URL
-        run: |
-          sed -i "s|__API_URL__|${{ vars.API_URL }}|g" frontend/config.js
 
       ############################################################
       # DEPLOY TO S3
