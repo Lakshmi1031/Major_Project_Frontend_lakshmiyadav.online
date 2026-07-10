@@ -4,11 +4,11 @@ on:
 
   workflow_dispatch:
 
-  push:
+#   push:
 
-    branches:
+#     branches:
 
-      - dev
+#       - dev
 
 permissions:
 
@@ -19,7 +19,7 @@ permissions:
 jobs:
 
   deploy:
-
+    environment: Development
     runs-on: ubuntu-latest
 
     steps:
@@ -44,7 +44,7 @@ jobs:
 
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
 
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       ############################################################
       # Upload Frontend to S3
@@ -54,7 +54,7 @@ jobs:
 
         run: |
 
-          aws s3 sync frontend/ s3://${{ secrets.S3_BUCKET_NAME }} \
+          aws s3 sync frontend/ s3://${{ vars.S3_BUCKET_NAME }} \
             --delete
 
       ############################################################
@@ -66,5 +66,5 @@ jobs:
         run: |
 
           aws cloudfront create-invalidation \
-            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --distribution-id ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }} \
             --paths "/*"

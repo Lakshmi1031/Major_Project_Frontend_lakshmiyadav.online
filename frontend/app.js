@@ -1,4 +1,6 @@
-const API_URL = CONFIG.API_URL;
+const API_URL="https://dev-api.space9.in"
+
+
 
 async function loadStudents() {
 
